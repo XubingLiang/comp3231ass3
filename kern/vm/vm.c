@@ -117,7 +117,7 @@ int hpt_copy(uint32_t old, uint32_t new){
                         old_vaddr = hpt[i].vaddr;
                         old_entry_lo= hpt[i].entry_lo;
                         result=hpt_insert_copy(new_pid, old_vaddr,old_entry_lo);
-                        if(result){
+                        if(result==0){
                                 lock_release(hpt_lock);
                                 return ENOMEM;
                         }
@@ -132,7 +132,6 @@ int hpt_copy(uint32_t old, uint32_t new){
 
 int hpt_insert_copy(uint32_t pid, vaddr_t old_vaddr,uint32_t old_entry_lo){
         vaddr_t vaddr = alloc_kpages(1);
-        memmove((void *)vaddr, (const void *)PADDR_TO_KVADDR(old_entry_lo & PAGE_FRAME), PAGE_SIZE);
         if (vaddr == 0) {
                 return ENOMEM;
         }
@@ -166,7 +165,7 @@ int hpt_insert_copy(uint32_t pid, vaddr_t old_vaddr,uint32_t old_entry_lo){
                 hpt[i].next=j;
                 entry_lo = hpt[j].entry_lo;
         }
-
+        memmove((void *)vaddr, (const void *)PADDR_TO_KVADDR(old_entry_lo & PAGE_FRAME), PAGE_SIZE);
         return entry_lo;
 
 }
@@ -180,16 +179,19 @@ void hpt_remove(uint32_t as){
                 if (hpt[i].pid == as){
                         if (hpt[i].next != -1){
                                 next = hpt[i].next;
+                                free_kpages(PADDR_TO_KVADDR(hpt[i].entry_lo)&PAGE_FRAME);
                                 hpt[i].pid = hpt[next].pid;
                                 hpt[i].vaddr = hpt[next].vaddr;
                                 hpt[i].entry_lo = hpt[next].entry_lo;
                                 hpt[i].next = hpt[next].next;
+
                                 //fuck fucks
                                 hpt[next].pid=0;
                                 hpt[next].vaddr=0;
                                 hpt[next].entry_lo =  0;
                                 hpt[next].next = -1;
                         } else {
+                                free_kpages(PADDR_TO_KVADDR(hpt[i].entry_lo)&PAGE_FRAME);
                                 hpt[i].entry_lo = 0;
                                 hpt[i].next = -1;
                         }
