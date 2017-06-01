@@ -17,8 +17,8 @@
 
 int hpt_size;
 struct PTE* hpt;
-struct lock* hpt_lock;
-struct lock* hpt_lock1;
+static struct spinlock hpt_lock = SPINLOCK_INITIALIZER;
+static struct spinlock hpt_lock1 = SPINLOCK_INITIALIZER;
 
 
 /* Place your page table functions here */
@@ -32,33 +32,32 @@ void hpt_init(void){
                 hpt[i].entry_lo=0;
                 hpt[i].next =-1;
         }
-        hpt_lock =lock_create("hpt_lock");
-        hpt_lock1 =lock_create("hpt_lock1");
 
 }
 
 uint32_t hpt_lookup(uint32_t as,vaddr_t faultaddr){
         uint32_t index = hpt_hash(as,faultaddr);
-        lock_acquire(hpt_lock);
-        int j =index;
-        //int i =0;
+        spinlock_acquire(&hpt_lock);
+        int curr =index;
         uint32_t entry_lo= 0;
+        faultaddr &= PAGE_FRAME;
         if((hpt[index].entry_lo & TLBLO_VALID) == 0){
                 entry_lo = 0;
         } else {
-                if(hpt[index].pid==as && hpt[index].vaddr== (faultaddr & PAGE_FRAME)){
+                if(hpt[index].pid==as && hpt[index].vaddr== faultaddr){
                         entry_lo=hpt[index].entry_lo;
                 } else {
-                        while(hpt[j].next != -1){
-                                if(hpt[j].pid==as && hpt[j].vaddr==(faultaddr & PAGE_FRAME)){
-                                        entry_lo=hpt[j].entry_lo;
+                        while(curr != -1){
+                                if(hpt[curr].pid==as && hpt[curr].vaddr==faultaddr ){
+                                        entry_lo=hpt[curr].entry_lo;
+                                        break;
                                 }
-                                j=hpt[j].next;
+                                curr=hpt[curr].next;
                         }
 
                 }
         }
-        lock_release(hpt_lock);
+        spinlock_release(&hpt_lock);
         return entry_lo;
 }
 
@@ -69,16 +68,15 @@ uint32_t hpt_insert(uint32_t as,vaddr_t faultaddr){
         if (vaddr == 0) {
                 return ENOMEM;
         }
-        lock_acquire(hpt_lock);
+        spinlock_acquire(&hpt_lock);
         int i=0;
         uint32_t entry_lo=0;
         paddr_t paddr = KVADDR_TO_PADDR(vaddr);
         uint32_t index = hpt_hash(as,faultaddr);
         int j =index;
-
         if((hpt[index].entry_lo & TLBLO_VALID) == 0){
                 hpt[index].pid=as;
-                hpt[index].vaddr=faultaddr;
+                hpt[index].vaddr=faultaddr& PAGE_FRAME;
                 hpt[index].entry_lo=(paddr & PAGE_FRAME) | TLBLO_DIRTY | TLBLO_VALID;
                 hpt[index].next=-1;
                 entry_lo = hpt[j].entry_lo;
@@ -87,9 +85,10 @@ uint32_t hpt_insert(uint32_t as,vaddr_t faultaddr){
                         j=(index+i)%hpt_size;
                         if((hpt[j].entry_lo & TLBLO_VALID) == 0){
                                 hpt[j].pid=as;
-                                hpt[j].vaddr=faultaddr;
+                                hpt[j].vaddr=faultaddr & PAGE_FRAME;
                                 hpt[j].entry_lo=(paddr & PAGE_FRAME) | TLBLO_DIRTY | TLBLO_VALID;
                                 hpt[j].next=-1;
+                                entry_lo = hpt[j].entry_lo;
                                 break;
                         }
                 }
@@ -98,106 +97,64 @@ uint32_t hpt_insert(uint32_t as,vaddr_t faultaddr){
                         i=hpt[i].next;
                 }
                 hpt[i].next=j;
-                entry_lo = hpt[j].entry_lo;
         }
-
-        lock_release(hpt_lock);
+        spinlock_release(&hpt_lock);
         return entry_lo;
 
 }
 
 int hpt_copy(uint32_t old, uint32_t new){
-        lock_acquire(hpt_lock);
         uint32_t new_pid=new;
         vaddr_t old_vaddr=0;
         uint32_t old_entry_lo=0;
-        int result=0;
+        uint32_t new_entry_lo=0;
+        spinlock_acquire(&hpt_lock1);
         for (int i = 0; i < hpt_size; i++){
                 if (hpt[i].pid == old){
                         old_vaddr = hpt[i].vaddr;
                         old_entry_lo= hpt[i].entry_lo;
-                        result=hpt_insert_copy(new_pid, old_vaddr,old_entry_lo);
-                        if(result==0){
-                                lock_release(hpt_lock);
-                                return ENOMEM;
-                        }
+                        new_entry_lo=hpt_insert(new_pid,old_vaddr);
+                        paddr_t new_paddr= new_entry_lo & PAGE_FRAME;
+                        paddr_t old_paddr= old_entry_lo & PAGE_FRAME;
+                        memcpy((void *)PADDR_TO_KVADDR(new_paddr), (const void *)PADDR_TO_KVADDR(old_paddr), PAGE_SIZE);
                 }
         }
-        lock_release(hpt_lock);
+        spinlock_release(&hpt_lock1);
         return 0;
 }
 
 
-
-
-int hpt_insert_copy(uint32_t pid, vaddr_t old_vaddr,uint32_t old_entry_lo){
-        vaddr_t vaddr = alloc_kpages(1);
-        if (vaddr == 0) {
-                return ENOMEM;
-        }
-        int i=0;
-        uint32_t entry_lo=0;
-        paddr_t paddr = KVADDR_TO_PADDR(vaddr);
-        uint32_t index = hpt_hash(pid,old_vaddr);
-        int j =index;
-
-        if((hpt[index].entry_lo & TLBLO_VALID) == 0){
-                hpt[index].pid=pid;
-                hpt[index].vaddr=old_vaddr;
-                hpt[index].entry_lo=(paddr & PAGE_FRAME) | TLBLO_DIRTY | TLBLO_VALID;
-                hpt[index].next=-1;
-                entry_lo = hpt[j].entry_lo;
-        } else {
-                for(i=0;i<hpt_size;i++){
-                        j=(index+i)%hpt_size;
-                        if((hpt[j].entry_lo & TLBLO_VALID) == 0){
-                                hpt[j].pid=pid;
-                                hpt[j].vaddr=old_vaddr;
-                                hpt[j].entry_lo=(paddr & PAGE_FRAME) | TLBLO_DIRTY | TLBLO_VALID;
-                                hpt[j].next=-1;
-                                break;
-                        }
-                }
-                i=index;
-                while(hpt[i].next!=-1){
-                        i=hpt[i].next;
-                }
-                hpt[i].next=j;
-                entry_lo = hpt[j].entry_lo;
-        }
-        memmove((void *)vaddr, (const void *)PADDR_TO_KVADDR(old_entry_lo & PAGE_FRAME), PAGE_SIZE);
-        return entry_lo;
-
-}
-
-
-
 void hpt_remove(uint32_t as){
         int next =0;
-        lock_acquire(hpt_lock);
+        spinlock_acquire(&hpt_lock);
         for (int i=0; i < hpt_size; i ++){
                 if (hpt[i].pid == as){
-                        if (hpt[i].next != -1){
+                        // kprintf("removing %d, addr is 0x%x\n", i, hpt[i].entry_lo&PAGE_FRAME);
+                        free_kpages(PADDR_TO_KVADDR(hpt[i].entry_lo&PAGE_FRAME));
+                        if (hpt[i].next == -1){
+                                hpt[i].entry_lo = 0;
+                                hpt[i].pid =0;
+                                hpt[i].vaddr = 0;
+                                hpt[i].next = -1;
+                        } else {
                                 next = hpt[i].next;
-                                free_kpages(PADDR_TO_KVADDR(hpt[i].entry_lo)&PAGE_FRAME);
+
                                 hpt[i].pid = hpt[next].pid;
                                 hpt[i].vaddr = hpt[next].vaddr;
                                 hpt[i].entry_lo = hpt[next].entry_lo;
                                 hpt[i].next = hpt[next].next;
-
                                 //fuck fucks
                                 hpt[next].pid=0;
                                 hpt[next].vaddr=0;
                                 hpt[next].entry_lo =  0;
                                 hpt[next].next = -1;
-                        } else {
-                                free_kpages(PADDR_TO_KVADDR(hpt[i].entry_lo)&PAGE_FRAME);
-                                hpt[i].entry_lo = 0;
-                                hpt[i].next = -1;
+                                i--;
+                                //
                         }
                 }
+
         }
-        lock_release(hpt_lock);
+        spinlock_release(&hpt_lock);
 }
 
 
@@ -218,9 +175,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         /* TLB entry low */
         uint32_t entry_lo;
         /*other variable*/
-        //uint32_t dirty;
+        //uint32_t dirty=0;
         //struct PTE* table_entry;
-        faultaddress &= PAGE_FRAME;
         switch (faulttype) {
                 case VM_FAULT_READONLY:
                         return EFAULT;
@@ -246,8 +202,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         if(entry_lo==0){
                 struct region *region=as->regions;
                 while(region!= NULL){
-                        if(faultaddress >= region->as_vbase && faultaddress <= region->as_vbase+(region->as_npages*PAGE_SIZE)){
-                                //
+                        if((faultaddress & PAGE_FRAME) >= region->as_vbase && (faultaddress & PAGE_FRAME) <= region->as_vbase+(region->as_npages*PAGE_SIZE)){
                                 break;
                         }
                         region = region->next_region;

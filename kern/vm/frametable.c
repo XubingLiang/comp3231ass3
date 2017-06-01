@@ -76,18 +76,9 @@ void ft_init(void){
 
 vaddr_t alloc_kpages(unsigned int npages)
 {
-
+        spinlock_acquire(&ft_lock);
          paddr_t addr=0;
 
-         /*RAM is full*/
-         spinlock_acquire(&ft_lock);
-         if(head == -1){
-                 spinlock_release(&ft_lock);
-                 return ENOMEM;
-         }
-         /*if the frametable is not initialised,
-         * keep using the bump allocator
-         */
         if(frame_table==NULL){
                 spinlock_acquire(&stealmem_lock);
                 addr = ram_stealmem(npages);
@@ -98,11 +89,18 @@ vaddr_t alloc_kpages(unsigned int npages)
                         spinlock_release(&ft_lock);
                         return 0;
                 }
+                if(head == -1){
+                        spinlock_release(&ft_lock);
+                        return ENOMEM;
+                }
                 addr = head <<12;
+                // if(head < 119) kprintf("alloc ing %d\n", head);
+
+                addr &=PAGE_FRAME;
                 int next = frame_table[head].next_free;
                 /*check if the current frame is the last free frame*/
                 frame_table[head].next_free=0;
-                if(frame_table[next].next_free== -1){
+                if(frame_table[head].next_free== -1){
                         head = -1;
                 } else{
                         head = next;
@@ -115,18 +113,14 @@ vaddr_t alloc_kpages(unsigned int npages)
                 return 0;
         }
         bzero((void *)PADDR_TO_KVADDR(addr), PAGE_SIZE);
-        // if(head){
-        //         // kprintf("%d\n",frame_table[4090].next_free);
-        //         kprintf("%d\n",head);
-        // }
         return PADDR_TO_KVADDR(addr);
 }
 
 void free_kpages(vaddr_t addr)
 {
+        addr &=PAGE_FRAME;
         paddr_t paddr = KVADDR_TO_PADDR(addr);
         int pfn = paddr >>OFFSET_BITS;
-
         spinlock_acquire(&ft_lock);
         if(frame_table[pfn].next_free != 0){
                 spinlock_release(&ft_lock);

@@ -88,6 +88,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         newR->prev_writeable = oldR->prev_writeable;
         newas->regions = newR;
         oldR = oldR->next_region;
+        // kprintf("from 0x%x to 0x%x\n", (int)newR->as_vbase, (int)(newR->as_vbase+(newR->as_npages*PAGE_SIZE)));
 
     //copy rest of the regions
         while (oldR != NULL){
@@ -101,30 +102,23 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                 newR->prev_writeable = oldR->prev_writeable;
                 prev->next_region = newR;
                 oldR = oldR->next_region;
+                // kprintf("from 0x%x to 0x%x\n", (int)newR->as_vbase, (int)(newR->as_vbase+(newR->as_npages*PAGE_SIZE)));
 
         }
-
+        if (as_prepare_load(newas)) {
+                as_destroy(newas);
+                return ENOMEM;
+        }
         hpt_copy((uint32_t)old, (uint32_t)newas);
         *ret = newas;
         return 0;
 }
-//
-// struct node * createNode(vaddr_t v, paddr_t p){
-//     struct node *newnode;
-//     newnode = malloc(sizeof(struct node));
-//     newnode->vaddr = v;
-//     newnode->paddr = p;
-//     newnode->next_node = NULL;
-// }
 
 
 
 void
 as_destroy(struct addrspace *as)
 {
-    /*
-     * Clean up as needed.
-     */
 
         KASSERT(as != NULL);
 
@@ -137,6 +131,8 @@ as_destroy(struct addrspace *as)
                 kfree(curr);
                 curr = next;
         }
+        kfree(curr);
+        kfree(next);
 
         hpt_remove((uint32_t)as);
 
@@ -183,11 +179,7 @@ as_deactivate(void)
         }
 
         splx(spl);
-        /*
-         * Write this. For many designs it won't need to actually do
-         * anything. See proc.c for an explanation of why it (might)
-         * be needed.
-         *remove entry from page table*/
+
 }
 
 /*
@@ -242,13 +234,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
                         curr = curr -> next_region;
                 }
                 curr->next_region = newRegion;
-                // kprintf("%d\n",counter);
-                // kprintf("from %u to %u\n", (int)newRegion->as_vbase, (int)(newRegion->as_vbase+(newRegion->as_npages*PAGE_SIZE)));
-                // prev->next_region = newRegion;
         }
-        //map in page table
-        (void)readable;
-        (void)executable;
         return 0;
 }
 
@@ -260,12 +246,10 @@ as_prepare_load(struct addrspace *as)
      */
         struct region *curr = as->regions;
         while(curr != NULL){
-                curr->prev_writeable = curr->writeable;
                 curr->writeable = 1;
                 curr = curr->next_region;
         }
 
-        (void)as;
         return 0;
 }
 
@@ -278,7 +262,6 @@ as_complete_load(struct addrspace *as)
                 curr = curr->next_region;
         }
 
-        (void)as;
         return 0;
 }
 
@@ -303,12 +286,3 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 
         return 0;
 }
-
-
-
-// static
-// void
-// as_zero_region(paddr_t paddr, unsigned npages)
-// {
-//     bzero((void *)PADDR_TO_KVADDR(paddr), npages * PAGE_SIZE);
-// }

@@ -78,7 +78,6 @@ uint32_t hpt_insert(uint32_t pid,vaddr_t faultaddr);
 uint32_t hpt_lookup(uint32_t pid,vaddr_t faultaddr);
 void hpt_remove(uint32_t as);
 int hpt_copy(uint32_t old, uint32_t new);
-int hpt_insert_copy(uint32_t pid, vaddr_t new_vaddr,uint32_t old_entry_lo);
 uint32_t hpt_hash(uint32_t pid, vaddr_t faultaddr);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
