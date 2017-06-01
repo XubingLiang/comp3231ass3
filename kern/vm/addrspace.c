@@ -67,48 +67,39 @@ int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
         struct addrspace *newas;
-        struct region *oldR, *newR, *prev;
+        struct region *old_region, *prev_region;
 
         newas = as_create();
         if (newas==NULL) {
                 return ENOMEM;
         }
-
-        oldR = old->regions;
-        if (oldR == 0){
-                return 0;
-        }
-    //creat the first region
-        newR = kmalloc(sizeof(struct region));
-        newR->as_vbase = oldR->as_vbase;
-        newR->as_npages = oldR->as_npages;
-        newR->writeable = oldR->writeable;
-        newR->readable = oldR->readable;
-        newR->executable = oldR->executable;
-        newR->prev_writeable = oldR->prev_writeable;
-        newas->regions = newR;
-        oldR = oldR->next_region;
-        // kprintf("from 0x%x to 0x%x\n", (int)newR->as_vbase, (int)(newR->as_vbase+(newR->as_npages*PAGE_SIZE)));
-
-    //copy rest of the regions
-        while (oldR != NULL){
-                prev = newR;
-                newR = kmalloc(sizeof(struct region));
-                newR->as_vbase = oldR->as_vbase;
-                newR->as_npages = oldR->as_npages;
-                newR->writeable = oldR->writeable;
-                newR->readable = oldR->readable;
-                newR->executable = oldR->executable;
-                newR->prev_writeable = oldR->prev_writeable;
-                prev->next_region = newR;
-                oldR = oldR->next_region;
-                // kprintf("from 0x%x to 0x%x\n", (int)newR->as_vbase, (int)(newR->as_vbase+(newR->as_npages*PAGE_SIZE)));
+        newas->regions=NULL;
+        prev_region = newas->regions;
+        old_region = old->regions;
+        while (old_region != NULL){
+                struct region* new_region = kmalloc(sizeof(struct region));
+                new_region->as_vbase = old_region->as_vbase;
+                new_region->as_npages = old_region->as_npages;
+                new_region->writeable = old_region->writeable;
+                new_region->prev_writeable = old_region->prev_writeable;
+                new_region->next_region=NULL;
+                if(prev_region == NULL){
+                        // kprintf("hehe\n");
+                        newas->regions=new_region;
+                } else{
+                        // kprintf("haha\n");
+                        prev_region->next_region = new_region;
+                }
+                prev_region = new_region;
+                old_region = old_region->next_region;
 
         }
+
         if (as_prepare_load(newas)) {
-                as_destroy(newas);
-                return ENOMEM;
-        }
+		as_destroy(newas);
+		return ENOMEM;
+	}
+
         hpt_copy((uint32_t)old, (uint32_t)newas);
         *ret = newas;
         return 0;
@@ -121,12 +112,12 @@ as_destroy(struct addrspace *as)
 {
 
         KASSERT(as != NULL);
-
         //free regions
         struct region *next, *curr;
         curr = as->regions;
         next = as->regions;
         while(curr!= NULL){
+                // kprintf("i am gonna destroy\n");
                 next = curr -> next_region;
                 kfree(curr);
                 curr = next;
@@ -196,6 +187,8 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
                  int readable, int writeable, int executable)
 {
+        (void)readable;
+        (void)executable;
         // kprintf("defining region, addr is %d\n",vaddr);
         size_t npages;
         /* Align the region. First, the base... */
@@ -216,8 +209,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         newRegion->as_vbase = vaddr;
         newRegion->as_npages = npages;
         newRegion->writeable = writeable;
-        newRegion->readable = readable;
-        newRegion->executable = executable;
         newRegion->prev_writeable = writeable;
         newRegion->next_region = NULL;
 
@@ -241,11 +232,10 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 int
 as_prepare_load(struct addrspace *as)
 {
-    /*
-     * Write this.
-     */
+
         struct region *curr = as->regions;
         while(curr != NULL){
+                curr->prev_writeable=curr->writeable;
                 curr->writeable = 1;
                 curr = curr->next_region;
         }

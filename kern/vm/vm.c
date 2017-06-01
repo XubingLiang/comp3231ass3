@@ -61,7 +61,7 @@ uint32_t hpt_lookup(uint32_t as,vaddr_t faultaddr){
         return entry_lo;
 }
 
-uint32_t hpt_insert(uint32_t as,vaddr_t faultaddr){
+uint32_t hpt_insert(uint32_t as,vaddr_t faultaddr,uint32_t dirty){
 
         vaddr_t vaddr = alloc_kpages(1);
 
@@ -77,7 +77,7 @@ uint32_t hpt_insert(uint32_t as,vaddr_t faultaddr){
         if((hpt[index].entry_lo & TLBLO_VALID) == 0){
                 hpt[index].pid=as;
                 hpt[index].vaddr=faultaddr& PAGE_FRAME;
-                hpt[index].entry_lo=(paddr & PAGE_FRAME) | TLBLO_DIRTY | TLBLO_VALID;
+                hpt[index].entry_lo=(paddr & PAGE_FRAME) | dirty | TLBLO_VALID;
                 hpt[index].next=-1;
                 entry_lo = hpt[j].entry_lo;
         } else {
@@ -86,7 +86,7 @@ uint32_t hpt_insert(uint32_t as,vaddr_t faultaddr){
                         if((hpt[j].entry_lo & TLBLO_VALID) == 0){
                                 hpt[j].pid=as;
                                 hpt[j].vaddr=faultaddr & PAGE_FRAME;
-                                hpt[j].entry_lo=(paddr & PAGE_FRAME) | TLBLO_DIRTY | TLBLO_VALID;
+                                hpt[j].entry_lo=(paddr & PAGE_FRAME) | dirty | TLBLO_VALID;
                                 hpt[j].next=-1;
                                 entry_lo = hpt[j].entry_lo;
                                 break;
@@ -113,7 +113,8 @@ int hpt_copy(uint32_t old, uint32_t new){
                 if (hpt[i].pid == old){
                         old_vaddr = hpt[i].vaddr;
                         old_entry_lo= hpt[i].entry_lo;
-                        new_entry_lo=hpt_insert(new_pid,old_vaddr);
+                        uint32_t dirty = old_entry_lo & TLBLO_DIRTY;
+                        new_entry_lo=hpt_insert(new_pid,old_vaddr,dirty);
                         paddr_t new_paddr= new_entry_lo & PAGE_FRAME;
                         paddr_t old_paddr= old_entry_lo & PAGE_FRAME;
                         memcpy((void *)PADDR_TO_KVADDR(new_paddr), (const void *)PADDR_TO_KVADDR(old_paddr), PAGE_SIZE);
@@ -131,12 +132,7 @@ void hpt_remove(uint32_t as){
                 if (hpt[i].pid == as){
                         // kprintf("removing %d, addr is 0x%x\n", i, hpt[i].entry_lo&PAGE_FRAME);
                         free_kpages(PADDR_TO_KVADDR(hpt[i].entry_lo&PAGE_FRAME));
-                        if (hpt[i].next == -1){
-                                hpt[i].entry_lo = 0;
-                                hpt[i].pid =0;
-                                hpt[i].vaddr = 0;
-                                hpt[i].next = -1;
-                        } else {
+                        if (hpt[i].next != -1){
                                 next = hpt[i].next;
 
                                 hpt[i].pid = hpt[next].pid;
@@ -149,7 +145,13 @@ void hpt_remove(uint32_t as){
                                 hpt[next].entry_lo =  0;
                                 hpt[next].next = -1;
                                 i--;
+                        } else {
+
                                 //
+                                hpt[i].entry_lo = 0;
+                                hpt[i].pid =0;
+                                hpt[i].vaddr = 0;
+                                hpt[i].next = -1;
                         }
                 }
 
@@ -175,7 +177,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         /* TLB entry low */
         uint32_t entry_lo;
         /*other variable*/
-        //uint32_t dirty=0;
+        uint32_t dirty=0;
         //struct PTE* table_entry;
         switch (faulttype) {
                 case VM_FAULT_READONLY:
@@ -203,6 +205,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 struct region *region=as->regions;
                 while(region!= NULL){
                         if((faultaddress & PAGE_FRAME) >= region->as_vbase && (faultaddress & PAGE_FRAME) <= region->as_vbase+(region->as_npages*PAGE_SIZE)){
+                                if(region-> writeable != 0){
+                                        dirty = TLBLO_DIRTY;
+                                } else {
+                                        dirty=0;
+                                }
                                 break;
                         }
                         region = region->next_region;
@@ -212,7 +219,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                         return EFAULT;
                 }
                 //allocate frame, zero-fill, insert pte
-                entry_lo=hpt_insert(pid,faultaddress);
+                entry_lo=hpt_insert(pid,faultaddress,dirty);
 
         }
         entry_hi=faultaddress & PAGE_FRAME;

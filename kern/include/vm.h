@@ -74,7 +74,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress);
 
 /*Hashed page function function*/
 void hpt_init(void);
-uint32_t hpt_insert(uint32_t pid,vaddr_t faultaddr);
+uint32_t hpt_insert(uint32_t pid,vaddr_t faultaddr,uint32_t dirty);
 uint32_t hpt_lookup(uint32_t pid,vaddr_t faultaddr);
 void hpt_remove(uint32_t as);
 int hpt_copy(uint32_t old, uint32_t new);
