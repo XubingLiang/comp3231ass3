@@ -95,10 +95,6 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
         }
 
-        if (as_prepare_load(newas)) {
-		as_destroy(newas);
-		return ENOMEM;
-	}
 
         hpt_copy((uint32_t)old, (uint32_t)newas);
         *ret = newas;
@@ -235,7 +231,6 @@ as_prepare_load(struct addrspace *as)
 
         struct region *curr = as->regions;
         while(curr != NULL){
-                curr->prev_writeable=curr->writeable;
                 curr->writeable = 1;
                 curr = curr->next_region;
         }

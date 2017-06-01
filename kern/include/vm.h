@@ -54,7 +54,6 @@
 
 
 
-
 //struct of page table entry
 struct PTE {
         uint32_t pid;           //process id

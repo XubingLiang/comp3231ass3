@@ -14,7 +14,6 @@
 
 
 
-
 int hpt_size;
 struct PTE* hpt;
 static struct spinlock hpt_lock = SPINLOCK_INITIALIZER;
@@ -125,6 +124,8 @@ int hpt_copy(uint32_t old, uint32_t new){
 }
 
 
+
+
 void hpt_remove(uint32_t as){
         int next =0;
         spinlock_acquire(&hpt_lock);
@@ -196,19 +197,19 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         if (as == NULL) {
                 return EFAULT;
         }
-
+        faultaddress &= PAGE_FRAME;
         entry_lo=hpt_lookup(pid,faultaddress);
         /*if no valid entry, look up region
         * see if the vaddr is valid
         */
-        if(entry_lo==0){
-                struct region *region=as->regions;
+        if(entry_lo == 0){
+                struct region* region=as->regions;
                 while(region!= NULL){
-                        if((faultaddress & PAGE_FRAME) >= region->as_vbase && (faultaddress & PAGE_FRAME) <= region->as_vbase+(region->as_npages*PAGE_SIZE)){
-                                if(region-> writeable != 0){
-                                        dirty = TLBLO_DIRTY;
+                        if(faultaddress >= region->as_vbase && faultaddress  <= region->as_vbase+(region->as_npages*PAGE_SIZE)){
+                                if(region-> writeable == 0){
+                                        dirty = 0;
                                 } else {
-                                        dirty=0;
+                                        dirty=TLBLO_DIRTY;
                                 }
                                 break;
                         }
@@ -220,10 +221,26 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 }
                 //allocate frame, zero-fill, insert pte
                 entry_lo=hpt_insert(pid,faultaddress,dirty);
+        } else {
+                struct region* region=as->regions;
+                while(region!= NULL){
+                        if(faultaddress >= region->as_vbase && faultaddress <= region->as_vbase+(region->as_npages*PAGE_SIZE)){
+                                if(region-> writeable == 0){
+                                        // kprintf("%x ",entry_lo);
+                                        entry_lo = entry_lo & ~(TLBLO_DIRTY);
+                                        // kprintf("after %x \n",entry_lo);
+                                }
+                                break;
+                        }
+                        region = region->next_region;
+                }
+                if(region==NULL){
+                        return EFAULT;
+                }
 
         }
-        entry_hi=faultaddress & PAGE_FRAME;
 
+        entry_hi=faultaddress & PAGE_FRAME;
         int spl = splhigh();
         tlb_random(entry_hi, entry_lo);
     	splx(spl);
