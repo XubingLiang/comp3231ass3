@@ -52,12 +52,13 @@ struct addrspace *
 as_create(void)
 {
         struct addrspace *as;
-
+        //malloc new address space
         as = kmalloc(sizeof(struct addrspace));
         if (as == NULL) {
+            //if fails to malloc
                 return NULL;
         }
-
+        //head of the list of regions 
         as->regions = NULL;
 
         return as;
@@ -68,7 +69,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 {
         struct addrspace *newas;
         struct region *old_region, *prev_region;
-
+        //create new address space
         newas = as_create();
         if (newas==NULL) {
                 return ENOMEM;
@@ -77,17 +78,17 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         prev_region = newas->regions;
         old_region = old->regions;
         while (old_region != NULL){
+                //creaet new region and clone the content from each old region
                 struct region* new_region = kmalloc(sizeof(struct region));
                 new_region->as_vbase = old_region->as_vbase;
                 new_region->as_npages = old_region->as_npages;
                 new_region->writeable = old_region->writeable;
                 new_region->prev_writeable = old_region->prev_writeable;
                 new_region->next_region=NULL;
+                //if it's the first region of this address space, set it as head of the list
                 if(prev_region == NULL){
-                        // kprintf("hehe\n");
                         newas->regions=new_region;
                 } else{
-                        // kprintf("haha\n");
                         prev_region->next_region = new_region;
                 }
                 prev_region = new_region;
@@ -95,7 +96,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
         }
 
-
+        //copy PTE from hash page table
         hpt_copy((uint32_t)old, (uint32_t)newas);
         *ret = newas;
         return 0;
@@ -113,14 +114,13 @@ as_destroy(struct addrspace *as)
         curr = as->regions;
         next = as->regions;
         while(curr!= NULL){
-                // kprintf("i am gonna destroy\n");
                 next = curr -> next_region;
                 kfree(curr);
                 curr = next;
         }
         kfree(curr);
         kfree(next);
-
+        //remove PTE from page table
         hpt_remove((uint32_t)as);
 
         kfree(as);
@@ -199,23 +199,21 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         if (newRegion == NULL){
                 return ENOMEM;
         }
-
+        //set content in this region
         newRegion->as_vbase = vaddr;
         newRegion->as_npages = npages;
         newRegion->writeable = writeable;
         newRegion->prev_writeable = writeable;
         newRegion->next_region = NULL;
 
+        //append this region to the end of regions fo this address space
         struct region *curr = as->regions;
         // struct region *prev = NULL;
-        int counter = 0;
         if (curr == NULL){
-                counter ++;
                 as->regions = newRegion;
         } else {
                 while (curr->next_region != 0){
                         // prev = curr
-                        counter ++;
                         curr = curr -> next_region;
                 }
                 curr->next_region = newRegion;
@@ -223,10 +221,11 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         return 0;
 }
 
+
 int
 as_prepare_load(struct addrspace *as)
 {
-
+        //set writeable bit to 1
         struct region *curr = as->regions;
         while(curr != NULL){
                 curr->writeable = 1;
@@ -239,6 +238,7 @@ as_prepare_load(struct addrspace *as)
 int
 as_complete_load(struct addrspace *as)
 {
+        //reset the writeable bit to origin
         struct region *curr = as->regions;
         while(curr != NULL){
                 curr->writeable = curr->prev_writeable;
@@ -252,13 +252,7 @@ int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
         int err;
-        /*
-        * make a stack vm_object
-        *
-        * The stack is USERSTACKSIZE bytes, which is defined in machine/vm.h.
-        * This is generally quite large, so it is zerofilled to make swap use
-        * efficient and fork reasonably fast.
-        */
+
         err = as_define_region(as, USERSTACK-USERSTACKSIZE, USERSTACKSIZE, 1, 1, 0);
         if (err) {
                 return err;
