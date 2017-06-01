@@ -40,14 +40,13 @@ void ft_init(void){
         /*for loop to  inilisied the value of frame_table.*/
 
         unsigned int i;
-        //struct frame_table_entry tmp;
+        //initialise all postions in the array of frame table
         for(i=0;i < nframes;i++){
                 if(i == nframes-1){
                         frame_table[i].next_free=-1; /*set the last frame. next_free to -1*/
                 } else{
                         frame_table[i].next_free=i+1;
                 }
-                //memmove(&frame_table[i], &tmp, sizeof(tmp));
         }
 
 
@@ -61,6 +60,7 @@ void ft_init(void){
         for(i = nframes-1 ; i >= location >> OFFSET_BITS; i --){
                 frame_table[i].next_free=0;
         }
+        //last one of the list
         frame_table[i-1].next_free=-1;
 
 
@@ -78,23 +78,23 @@ vaddr_t alloc_kpages(unsigned int npages)
 {
         spinlock_acquire(&ft_lock);
          paddr_t addr=0;
-
         if(frame_table==NULL){
+             //if frame table has been initialised
                 spinlock_acquire(&stealmem_lock);
                 addr = ram_stealmem(npages);
                 spinlock_release(&stealmem_lock);
         }else{
-
+                //only allocate one page each time in this assignment 
                 if(npages != 1){
                         spinlock_release(&ft_lock);
                         return 0;
                 }
+                // check if it reachs the end of the list
                 if(head == -1){
                         spinlock_release(&ft_lock);
                         return ENOMEM;
                 }
                 addr = head <<12;
-                // if(head < 119) kprintf("alloc ing %d\n", head);
 
                 addr &=PAGE_FRAME;
                 int next = frame_table[head].next_free;
@@ -126,7 +126,7 @@ void free_kpages(vaddr_t addr)
                 spinlock_release(&ft_lock);
                 return;
         }
-
+        //put the frame at the head of the list after freed
         if(head == -1){
                frame_table[pfn].next_free=-1;
         }else{

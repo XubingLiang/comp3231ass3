@@ -45,7 +45,7 @@ struct region {
     vaddr_t as_vbase;  // started virtual address for one region
     size_t as_npages;  //how many pages of this region
     int writeable;             //writable flag
-    int prev_writeable;
+    int prev_writeable;         //orginal writable flag
     struct region *next_region;         //following region
 };
 
