@@ -75,9 +75,10 @@ int vm_fault(int faulttype, vaddr_t faultaddress);
 void hpt_init(void);
 uint32_t hpt_insert(uint32_t pid,vaddr_t faultaddr,uint32_t dirty);
 uint32_t hpt_lookup(uint32_t pid,vaddr_t faultaddr);
-void hpt_remove(uint32_t as);
+void hpt_remove(uint32_t pid);
 int hpt_copy(uint32_t old, uint32_t new);
 uint32_t hpt_hash(uint32_t pid, vaddr_t faultaddr);
+struct region* lookup_region(vaddr_t faultaddress, uint32_t* dirty);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages);

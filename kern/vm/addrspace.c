@@ -136,14 +136,12 @@ as_activate(void)
 	if (as == NULL) {
 		return;
 	}
-
 	/* Disable interrupts on this CPU while frobbing the TLB. */
 	spl = splhigh();
 
 	for (i=0; i<NUM_TLB; i++) {
 		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
 	}
-
 	splx(spl);
 }
 
