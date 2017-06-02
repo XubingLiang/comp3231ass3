@@ -76,7 +76,7 @@ uint32_t hpt_insert(uint32_t pid,vaddr_t faultaddr,uint32_t dirty){
         vaddr_t vaddr = alloc_kpages(1);
 
         if (vaddr == 0) {
-                return 0;
+                return ENOMEM;
         }
         spinlock_acquire(&hpt_lock);
         int i=0;
@@ -133,9 +133,6 @@ int hpt_copy(uint32_t old, uint32_t new){
                         uint32_t dirty = old_entry_lo & TLBLO_DIRTY;
                         //create new entry
                         new_entry_lo=hpt_insert(new_pid,old_vaddr,dirty);
-                        if(new_entry_lo==0){
-                                return ENOMEM;
-                        }
                         paddr_t new_paddr= new_entry_lo & PAGE_FRAME;
                         paddr_t old_paddr= old_entry_lo & PAGE_FRAME;
                         //move staff from old frame to new frame
@@ -258,9 +255,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 }
                 //allocate frame, zero-fill, insert pte
                 entry_lo=hpt_insert(pid,faultaddress,dirty);
-                if(entry_lo==0){
-                        return EFAULT;
-                }
         } else {
                 region=lookup_region(faultaddress,&dirty);
                 //change permission, if dirty =0

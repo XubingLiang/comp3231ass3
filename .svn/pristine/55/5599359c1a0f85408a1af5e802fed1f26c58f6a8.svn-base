@@ -1,0 +1,29 @@
+Memory Management
+
+Physical memory has been divided into frames with the same size. The structure of our frame table entry only contains next available frame and forming a free-list of frames. Then we are always tracking the head this list. When alloc_kpages is called, we would allocate it to the head. When free_kpages is called, the resetting frame would be appended the head of the free-list. 
+
+Address Space Management
+
+Address space in our designs only contains the description of the regions since shared page table is being used that don’t have to store it in each process. Each region contains started virtual address, number of pages of this region, writable bit (track the permission of a region), original writable bit (reset the permission on original state when loading completed), and a pointer to the following region. 
+
+As_ create: create an address space for a process, initial a null pointer for adding regions afterwards.
+
+As_copy: This function would be called when the system requires fork. A new address space would be created and regions from old address space will be cloned into new address space. Additionally, kernel would transverse all page table entry(PTE) and clone those PTE that with PID of old address space. Lastly, move the content from memory according to PTE.
+
+As_destroy: Remove all regions of this address space and remove all PTE of this address.  Eventually reset the frames to be available for allocate.
+
+As_active: flush TLB (only this address space be visible for processor)
+
+As_deactive: flush TLB (this address space is invisible for processor)
+
+As_define_region: append a new region to current addresses and set writable bit and original writable bit.
+
+As_prepare_load: change writable bit for loading
+
+As_complete_load: reset current writable bit to original writable bit
+
+As_define_stack: define initial position for user and allocate 16 pages.
+
+Address Translation
+
+We’ve implemented a hash page table with internal chaining for store the page table entry. We choose internal chaining for handling collisions rather than external chaining since we don’t have to require extra memory after initialization but the disadvantage is PTE might not enough for more complex system. Each page table entry contains PID as process identifier, page number, entry_lo (the same format as TLB’s), index of next PTE in this chain. And entry_lo contains virtual address of frame, dirty bit and valid bit. When vm_fault has been called in tern of TLB is missing, it would check whether locate in this address space by checking all regions. Then it would find the starting index of the chaining through hash function, iterates all PTE along this chain to find PTE with matching PID and page number. If it fails to find the PTE in page table, a new PTE would be inserted into available place. 

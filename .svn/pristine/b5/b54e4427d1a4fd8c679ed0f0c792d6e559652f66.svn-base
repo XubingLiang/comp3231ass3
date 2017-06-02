@@ -58,7 +58,7 @@ as_create(void)
             //if fails to malloc
                 return NULL;
         }
-        //head of the list of regions
+        //head of the list of regions 
         as->regions = NULL;
 
         return as;
@@ -97,11 +97,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         }
 
         //copy PTE from hash page table
-        int result=0;
-        result=hpt_copy((uint32_t)old, (uint32_t)newas);
-        if(result!=0){
-                return ENOMEM;
-        }
+        hpt_copy((uint32_t)old, (uint32_t)newas);
         *ret = newas;
         return 0;
 }

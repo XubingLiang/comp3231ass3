@@ -84,15 +84,15 @@ vaddr_t alloc_kpages(unsigned int npages)
                 addr = ram_stealmem(npages);
                 spinlock_release(&stealmem_lock);
         }else{
-                //only allocate one page each time in this assignment
+                //only allocate one page each time in this assignment 
                 if(npages != 1){
                         spinlock_release(&ft_lock);
                         return 0;
                 }
-                // check if there is no free frame on the frametable
+                // check if it reachs the end of the list
                 if(head == -1){
                         spinlock_release(&ft_lock);
-                        return 0;
+                        return ENOMEM;
                 }
                 addr = head <<12;
 
