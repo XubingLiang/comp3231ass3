@@ -33,18 +33,18 @@ The top of kuseg is 0x80000000. The top of kseg0 is 0xa0000000, and the top of k
 
 ### The memory map thus looks like this:
 Address	Segment	Special properties:
-`0xffffffff	kseg2`
-`0xc0000000` 
-`0xbfffffff	kseg1`	 
-`0xbfc00180	Exception address if BEV set.`
-`0xbfc00100	UTLB exception address if BEV set.`
-`0xbfc00000	Execution begins here after processor reset.`
-`0xa0000000	 `
-`0x9fffffff	kseg0`	 
-`0x80000080	Exception address if BEV not set.`
-`0x80000000	UTLB exception address if BEV not set.`
-`0x7fffffff	kuseg`	 
-`0x00000000	 `
+- `0xffffffff	kseg2`
+- `0xc0000000` 
+- `0xbfffffff	kseg1`	 
+- `0xbfc00180	Exception address if BEV set.`
+- `0xbfc00100	UTLB exception address if BEV set.`
+- `0xbfc00000	Execution begins here after processor reset.`
+- `0xa0000000	 `
+- `0x9fffffff	kseg0`	 
+- `0x80000080	Exception address if BEV not set.`
+- `0x80000000	UTLB exception address if BEV not set.`
+- `0x7fffffff	kuseg`	 
+- `0x00000000	 `
 
 ## Setting Up Assignment 3
 
