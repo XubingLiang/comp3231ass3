@@ -2,9 +2,9 @@
 # comp3231ass3
 
 ## Introduction
-```
+
 In this assignment you will implement the virtual memory sub-system of OS/161. The existing VM implementation in OS/161, dumbvm, is a minimal implementation with a number of shortcomings. In this assignment you will adapt OS/161 to take full advantage of the simulated hardware by implementing management of the MIPS software-managed Translation Lookaside Buffer (TLB). You will write the code to manage this TLB. You will also write code to manage system memory.
-```
+
 
 ## The System/161 TLB
 
@@ -31,22 +31,22 @@ The MIPS divides its address space into several regions that have hardwired prop
 
 The top of kuseg is 0x80000000. The top of kseg0 is 0xa0000000, and the top of kseg1 is 0xc0000000.
 
-The memory map thus looks like this:
+### The memory map thus looks like this:
+Address	Segment	Special properties:
+`0xffffffff	kseg2`
+`0xc0000000` 
+`0xbfffffff	kseg1`	 
+`0xbfc00180	Exception address if BEV set.`
+`0xbfc00100	UTLB exception address if BEV set.`
+`0xbfc00000	Execution begins here after processor reset.`
+`0xa0000000	 `
+`0x9fffffff	kseg0`	 
+`0x80000080	Exception address if BEV not set.`
+`0x80000000	UTLB exception address if BEV not set.`
+`0x7fffffff	kuseg`	 
+`0x00000000	 `
 
-Address	Segment	Special properties
-0xffffffff	kseg2	 
-0xc0000000	 
-0xbfffffff	kseg1	 
-0xbfc00180	Exception address if BEV set.
-0xbfc00100	UTLB exception address if BEV set.
-0xbfc00000	Execution begins here after processor reset.
-0xa0000000	 
-0x9fffffff	kseg0	 
-0x80000080	Exception address if BEV not set.
-0x80000000	UTLB exception address if BEV not set.
-0x7fffffff	kuseg	 
-0x00000000	 
-- Setting Up Assignment 3
+## Setting Up Assignment 3
 
 You will (again) be setting up the SVN repository that will contain your code. Remember to use a 3231 subshell (or continue using your modified PATH) for this assignment, as outlined in ASST0.
 
@@ -90,11 +90,11 @@ Now checkout a copy of the os161 sources to work on from your shared repository.
 You should now have a asst3-src directory to work on.
 
 You will also need to increase the amount of physical memory to run some of the provided tests. Update `~/cs3231/root/sys161.conf` so that the ramsize is as follows
+`31	mainboard  ramsize=16777216  cpus=1`
 
-31	mainboard  ramsize=16777216  cpus=1
 Or, download a fresh, appropriately configured, version from here, and install it.
 
-Configure OS/161 for Assignment 3
+## Configure OS/161 for Assignment 3
 
 Remember to set your PATH environment variable as in previous assignments (e.g. run the 3231 command).
 
@@ -114,7 +114,7 @@ You have to reconfigure your kernel before you can use the framework provided to
 ```
 You should now see an ASST3 directory in the compile directory.
 
-Building for ASST3
+## Building for ASST3
 
 When you built OS/161 for ASST0, you ran bmake from compile/ASST0. When you built for ASST1, you ran bmake from compile/ASST1 ... you can probably see where this is heading:
 
