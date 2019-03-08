@@ -1,18 +1,21 @@
 
 # comp3231ass3
-- Introduction
+
+## Introduction
 
 In this assignment you will implement the virtual memory sub-system of OS/161. The existing VM implementation in OS/161, dumbvm, is a minimal implementation with a number of shortcomings. In this assignment you will adapt OS/161 to take full advantage of the simulated hardware by implementing management of the MIPS software-managed Translation Lookaside Buffer (TLB). You will write the code to manage this TLB. You will also write code to manage system memory.
 
-- The System/161 TLB
+## The System/161 TLB
 
 In the System/161 machine, each TLB entry includes a 20-bit virtual page number and a 20-bit physical page number as well as the following five fields:
-global: 1 bit; if set, ignore the PID bits in the TLB.
-valid: 1 bit; set if the TLB entry contains a valid translation.
-dirty: 1 bit; enables writing to the page referenced by the entry; if this bit is 0, the page is only accessible for reading.
-nocache: 1 bit; unused in System/161. In a real processor, indicates that the hardware cache will be disabled when accessing this page.
-pid: 6 bits; a context or address space ID that can be used to allow entries to remain in the TLB after a context switch.
+`global: 1 bit; if set, ignore the PID bits in the TLB.`
+`valid: 1 bit; set if the TLB entry contains a valid translation.`
+`dirty: 1 bit; enables writing to the page referenced by the entry; if this bit is 0, the page is only accessible for reading.`
+`nocache: 1 bit; unused in System/161. In a real processor, indicates that the hardware cache will be disabled when accessing this page.`
+`pid: 6 bits; a context or address space ID that can be used to allow entries to remain in the TLB after a context switch.`
+
 All these bits/values are maintained by the operating system. When the valid bit is set, the TLB entry contains a valid translation. This implies that the virtual page is present in physical memory. A TLB miss occurs when no TLB entry can be found with a matching virtual page and address space ID (unless the global bit is set in which case the address space ID is ignored) and a valid bit that is set.
+
 
 For this assignment, you may ignore the pid field. Note, however, that you must then flush the TLB on a context switch (why?).
 
