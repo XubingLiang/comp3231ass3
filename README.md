@@ -20,7 +20,7 @@ All these bits/values are maintained by the operating system. When the valid bit
 
 For this assignment, you may ignore the pid field. Note, however, that you must then flush the TLB on a context switch (why?).
 
-The System/161 Virtual Address Space Map
+## The System/161 Virtual Address Space Map
 
 The MIPS divides its address space into several regions that have hardwired properties. These are:
 - kseg2, TLB-mapped cacheable kernel space
